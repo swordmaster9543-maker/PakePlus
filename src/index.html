@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>焊接车间工件库存管理</title>
+<script src="https://cdn.jsdelivr.net/npm/vue@3.4/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;font-family:"Microsoft YaHei",sans-serif;font-size:13px;}
+body{background:#ffffff;margin:16px;color:#222;}
+h1{font-size:18px;margin:0 0 12px 0;font-weight:bold;}
+h2{font-size:14px;margin:14px 0 8px 0;font-weight:bold;}
+.section{border:1px solid #cccccc;padding:14px;margin-bottom:14px;border-radius:2px;}
+.row{margin:8px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.row label{width:90px;text-align:right;white-space:nowrap;}
+.required{color:red;}
+input,select{border:1px solid #999;padding:4px 6px;min-width:160px;}
+.btn-blue{background:#2b78e4;color:white;border:none;padding:5px 12px;border-radius:2px;cursor:pointer;}
+.btn-green{background:#28a745;color:white;border:none;padding:5px 12px;border-radius:2px;cursor:pointer;}
+.btn-red{background:#dc3545;color:white;border:none;padding:5px 12px;border-radius:2px;cursor:pointer;}
+.btn{cursor:pointer;}
+.suggest-box{position:absolute;background:#fff;border:1px solid #aaa;max-height:140px;overflow-y:auto;z-index:99;min-width:420px;}
+.suggest-item{padding:4px 6px;cursor:pointer;}
+.suggest-item:hover{background:#e8f0fe;}
+table{width:100%;border-collapse:collapse;margin-top:8px;}
+th,td{border:1px solid #aaa;padding:6px;text-align:center;}
+th{background:#f0f0f0;}
+.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:200;}
+.modal{background:#fff;border:1px solid #666;padding:16px;width:90%;max-width:700px;max-height:85vh;overflow-y:auto;}
+.log-area{max-height:220px;overflow-y:auto;border:1px solid #ccc;padding:6px;font-size:12px;}
+.log-item{padding:2px 0;border-bottom:1px solid #eee;}
+</style>
+</head>
+<body>
+<div id="app">
+    <h1>焊接车间工件库存管理</h1>
+    <div class="row">
+        <button class="btn-blue" @click="showLocModal=true">库位管理</button>
+        <button class="btn-blue" @click="showLogModal=true">查看操作日志</button>
+    </div>
+    <!-- 库位弹窗 -->
+    <div v-if="showLocModal" class="modal-mask" @click.self="showLocModal=false">
+        <div class="modal">
+            <h2>库位管理</h2>
+            <div class="row">
+                <input v-model="newLoc" placeholder="输入库位名称">
+                <button class="btn-blue" @click="addLoc">新增库位</button>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;">
+                <div v-for="loc in locList" :key="loc" style="border:1px solid #bbb;padding:4px 8px;display:flex;gap:6px;align-items:center;">
+                    <span>{{loc}}</span>
+                    <button @click="delLoc(loc)" style="color:red;border:none;background:none;cursor:pointer;">×</button>
+                </div>
+            </div>
+            <button class="btn-blue" @click="showLocModal=false">关闭</button>
+        </div>
+    </div>
+    <!-- 操作日志弹窗 -->
+    <div v-if="showLogModal" class="modal-mask" @click.self="showLogModal=false">
+        <div class="modal">
+            <h2>操作日志</h2>
+            <div class="log-area">
+                <div v-if="opLog.length===0">暂无操作记录</div>
+                <div v-for="log in opLog" :key="log.id" class="log-item">
+                    {{log.time}}｜{{log.type}}｜{{log.msg}}
+                </div>
+            </div>
+            <div class="row" style="margin-top:10px;">
+                <button class="btn-red" @click="clearLog">清空日志</button>
+                <button class="btn-blue" @click="showLogModal=false">关闭</button>
+            </div>
+        </div>
+    </div>
+    <!-- 工件入库 -->
+    <div class="section">
+        <h2>工件入库（默认入库：临时待分配） <span class="required">*为必填</span></h2>
+        <div class="row">
+            <label>产品型号:</label>
+            <input v-model="inForm.model" placeholder="手动输入产品型号">
+        </div>
+        <div class="row">
+            <label><span class="required">*</span>图号:</label>
+            <input v-model="inForm.drawNo" placeholder="手动输入图号">
+        </div>
+        <div class="row">
+            <label>工件名称:</label>
+            <input v-model="inForm.name" placeholder="工件名称">
+        </div>
+        <div class="row">
+            <label>材质:</label>
+            <input v-model="inForm.material" placeholder="输入材质">
+        </div>
+        <div class="row">
+            <label><span class="required">*</span>入库库位:</label>
+            <select v-model="inForm.location">
+                <option value="临时待分配">临时待分配</option>
+                <option v-for="l in locList" :key="l" :value="l">{{l}}</option>
+            </select>
+        </div>
+        <div class="row">
+            <label><span class="required">*</span>入库数量:</label>
+            <input v-model.number="inForm.qty" type="number" placeholder="请输入数量">
+            <button class="btn-blue" @click="doIn">提交入库</button>
+            <button class="btn-red" @click="clearInForm">清空</button>
+        </div>
+    </div>
+    <!-- 出库操作 -->
+    <div class="section">
+        <h2>出库操作</h2>
+        <div class="row" style="position:relative;">
+            <label>搜索图号:</label>
+            <input v-model="outSearch" @input="outSuggest" placeholder="输入图号检索">
+            <div v-if="outSuggestList.length>0" class="suggest-box">
+                <div v-for="it in outSuggestList" @click="pickOut(it)" class="suggest-item">
+                    型号:{{it.model}}｜图号:{{it.drawNo}}｜库位:{{it.location}}｜数量:{{it.qty}}
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <label>选中图号:</label>
+            <input v-model="selectedOutDraw" readonly>
+            <label>库位:</label>
+            <select v-model="outSelectLoc" @change="onOutLocChange">
+                <option v-for="l in outLocOptions" :key="l" :value="l">{{l}}（库存:{{getStockByDrawLoc(selectedOutDraw,l)}}）</option>
+            </select>
+            <label>出库数量:</label>
+            <input v-model.number="outQty" type="number" placeholder="请输入数量">
+            <button class="btn-blue" @click="doOut">提交出库</button>
+            <button class="btn-red" @click="clearOutForm">清空</button>
+        </div>
+    </div>
+    <!-- 移库操作 -->
+    <div class="section">
+        <h2>移库操作</h2>
+        <div class="row" style="position:relative;">
+            <label>搜索图号:</label>
+            <input v-model="moveSearch" @input="moveSuggest" placeholder="输入图号检索">
+            <div v-if="moveSuggestList.length>0" class="suggest-box">
+                <div v-for="it in moveSuggestList" @click="pickMove(it)" class="suggest-item">
+                    型号:{{it.model}}｜图号:{{it.drawNo}}｜库位:{{it.location}}｜数量:{{it.qty}}
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <label>选中图号:</label>
+            <input v-model="selectedMoveDraw" readonly>
+            <label>原库位:</label>
+            <select v-model="moveFromLoc" @change="onMoveLocChange">
+                <option v-for="l in moveLocOptions" :key="l" :value="l">{{l}}</option>
+            </select>
+            <label>目标库位:</label>
+            <select v-model="moveToLoc">
+                <option value="临时待分配">临时待分配</option>
+                <option v-for="l in locList" :key="l" :value="l">{{l}}</option>
+            </select>
+            <label>移库量:</label>
+            <input v-model.number="moveQty" type="number" placeholder="请输入数量">
+            <button class="btn-blue" @click="doMove">执行移库</button>
+            <button class="btn-red" @click="clearMoveForm">清空</button>
+        </div>
+    </div>
+    <!-- 导入导出 -->
+    <div class="section">
+        <h2>数据导入导出</h2>
+        <div class="row">
+            <button class="btn-blue" @click="triggerImportReplace">导入Excel(覆盖全部)</button>
+            <button class="btn-green" @click="triggerImportAppend">导入Excel(追加不覆盖)</button>
+            <button class="btn-blue" @click="exportExcel">导出全部库存Excel</button>
+            <button class="btn-blue" @click="exportHtml">导出HTML备份</button>
+            <button class="btn-blue" @click="triggerRestoreHtml">从HTML备份恢复</button>
+            <input type="file" ref="fileReplace" style="display:none;" accept=".xlsx,.xls" @change="importReplace" />
+            <input type="file" ref="fileAppend" style="display:none;" accept=".xlsx,.xls" @change="importAppend" />
+            <input type="file" ref="fileRestore" style="display:none;" accept=".html" @change="restoreHtml" />
+        </div>
+        <div style="font-size:12px;color:#555;margin-top:6px;">
+            Excel模板字段: 工件名称,产品型号,图号,材质,库位,库存数量<br>
+            追加导入：图号+库位相同则数量累加，不同新增；HTML备份完整保存库位+库存数据。
+        </div>
+    </div>
+    <!--库存查询-->
+    <div class="section">
+        <h2>库存查询
+            <span style="font-weight:normal;font-size:12px;">｜合计库存条目：{{tableData.length}} 总数量：{{totalStockQty}}</span>
+        </h2>
+        <div class="row">
+            <label>搜索图号:</label>
+            <input v-model="queryDraw" placeholder="输入图号搜索" @input="refreshTable">
+            <label>筛选库位:</label>
+            <select v-model="queryFilterLoc" @change="refreshTable">
+                <option value="">全部库位</option>
+                <option value="临时待分配">临时待分配</option>
+                <option v-for="l in locList" :key="l" :value="l">{{l}}</option>
+            </select>
+            <button class="btn-blue" @click="refreshTable">刷新库存表格</button>
+            <button class="btn-red" @click="clearQuery">清空查询</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>产品型号</th>
+                    <th>图号</th>
+                    <th>工件名称</th>
+                    <th>材质</th>
+                    <th>库位</th>
+                    <th>库存数量</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="row in tableData" :key="row.id">
+                    <td v-if="editId!==row.id">{{row.model}}</td>
+                    <td v-else><input v-model="editForm.model" /></td>
+                    <td v-if="editId!==row.id">{{row.drawNo}}</td>
+                    <td v-else><input v-model="editForm.drawNo" /></td>
+                    <td v-if="editId!==row.id">{{row.name}}</td>
+                    <td v-else><input v-model="editForm.name" /></td>
+                    <td v-if="editId!==row.id">{{row.material}}</td>
+                    <td v-else><input v-model="editForm.material" /></td>
+                    <td v-if="editId!==row.id">{{row.location}}</td>
+                    <td v-else>
+                        <select v-model="editForm.location">
+                            <option value="临时待分配">临时待分配</option>
+                            <option v-for="l in locList" :key="l" :value="l">{{l}}</option>
+                        </select>
+                    </td>
+                    <td v-if="editId!==row.id">{{row.qty}}</td>
+                    <td v-else><input v-model.number="editForm.qty" type="number" min="0" /></td>
+                    <td>
+                        <template v-if="editId!==row.id">
+                            <button class="btn-blue" @click="startEdit(row)">编辑</button>
+                            <button class="btn-red" @click="delStockRow(row)">删除</button>
+                        </template>
+                        <template v-else>
+                            <button class="btn-green" @click="saveEdit(row)">保存</button>
+                            <button class="btn-red" @click="cancelEdit">取消</button>
+                        </template>
+                    </td>
+                </tr>
+                <tr v-if="tableData.length===0">
+                    <td colspan="7" style="color:#777;">暂无库存数据</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+<script>
+const {createApp} = Vue;
+createApp({
+data(){
+    return{
+        showLocModal:false,
+        showLogModal:false,
+        newLoc:"",
+        locList:[],
+        stockList:[],
+        opLog:[],
+        inForm:{name:"",model:"",drawNo:"",material:"",qty:null,location:"临时待分配"},
+        outSearch:"",
+        outSuggestList:[],
+        selectedOutDraw:"",
+        outLocOptions:[],
+        outSelectLoc:"",
+        outQty:null,
+        moveSearch:"",
+        moveSuggestList:[],
+        selectedMoveDraw:"",
+        moveLocOptions:[],
+        moveFromLoc:"",
+        moveToLoc:"临时待分配",
+        moveQty:null,
+        queryDraw:"",
+        queryFilterLoc:"",
+        tableData:[],
+        totalStockQty:0,
+        editId:null,
+        editForm:{}
+    }
+},
+mounted(){
+    this.loadLocal();
+    this.refreshTable();
+},
+methods:{
+    loadLocal(){
+        let l=localStorage.getItem("weldLoc");
+        let s=localStorage.getItem("weldStock");
+        let log=localStorage.getItem("weldLog");
+        if(l) this.locList=JSON.parse(l);
+        if(s) this.stockList=JSON.parse(s);
+        if(log) this.opLog=JSON.parse(log);
+    },
+    saveLocal(){
+        localStorage.setItem("weldLoc",JSON.stringify(this.locList));
+        localStorage.setItem("weldStock",JSON.stringify(this.stockList));
+        localStorage.setItem("weldLog",JSON.stringify(this.opLog));
+        this.refreshTable();
+    },
+    addLog(type,msg){
+        this.opLog.unshift({
+            id:Date.now(),
+            time:new Date().toLocaleString(),
+            type,
+            msg
+        });
+        if(this.opLog.length>500) this.opLog.length=500;
+        this.saveLocal();
+    },
+    clearLog(){
+        if(!confirm("确定清空全部操作日志？")) return;
+        this.opLog=[];
+        this.saveLocal();
+    },
+    refreshTable(){
+        let arr=[...this.stockList];
+        if(this.queryDraw.trim()){
+            let kw=this.queryDraw.trim().toLowerCase();
+            arr=arr.filter(i=>i.drawNo.toLowerCase().includes(kw));
+        }
+        if(this.queryFilterLoc){
+            arr=arr.filter(i=>i.location===this.queryFilterLoc);
+        }
+        this.tableData = arr;
+        this.totalStockQty = arr.reduce((sum,item)=>sum+Number(item.qty),0);
+    },
+    //清空库存查询条件
+    clearQuery(){
+        this.queryDraw="";
+        this.queryFilterLoc="";
+        this.refreshTable();
+    },
+    //库位
+    addLoc(){
+        let v=this.newLoc.trim();
+        if(!v){alert("库位不能为空");return;}
+        if(this.locList.includes(v)){alert("库位已存在");return;}
+        this.locList.push(v);
+        this.newLoc="";
+        this.saveLocal();
+        this.addLog("库位","新增库位："+v);
+    },
+    delLoc(loc){
+        if(!confirm(`确定删除库位【${loc}】?`))return;
+        this.locList=this.locList.filter(x=>x!==loc);
+        this.saveLocal();
+        this.addLog("库位","删除库位："+loc);
+    },
+    //清空表单
+    clearInForm(){
+        this.inForm={name:"",model:"",drawNo:"",material:"",qty:null,location:"临时待分配"};
+    },
+    clearOutForm(){
+        this.outSearch="";
+        this.outSuggestList=[];
+        this.selectedOutDraw="";
+        this.outLocOptions=[];
+        this.outSelectLoc="";
+        this.outQty=null;
+    },
+    clearMoveForm(){
+        this.moveSearch="";
+        this.moveSuggestList=[];
+        this.selectedMoveDraw="";
+        this.moveLocOptions=[];
+        this.moveFromLoc="";
+        this.moveToLoc="临时待分配";
+        this.moveQty=null;
+    },
+    //入库
+    doIn(){
+        let f=this.inForm;
+        let drawStr = f.drawNo.trim();
+        if(!drawStr||!f.qty||Number(f.qty)<=0){alert("图号、入库数量为必填且大于0");return;}
+        let item={
+            id:Date.now(),
+            name:f.name?.trim()||"",
+            model:f.model?.trim()||"",
+            drawNo:drawStr,
+            material:f.material?.trim()||"",
+            qty:Number(f.qty),
+            location:f.location
+        };
+        let exist=this.stockList.find(x=>x.drawNo===item.drawNo && x.location===item.location);
+        if(exist){
+            exist.qty+=item.qty;
+        }else{
+            this.stockList.push(item);
+        }
+        this.saveLocal();
+        alert("入库完成");
+        this.addLog("入库",`产品型号:${item.model}，图号:${item.drawNo}，名称:${item.name}，材质:${item.material}，库位:${item.location}，数量:${item.qty}`);
+        this.clearInForm();
+    },
+    //出库
+    outSuggest(){
+        let kw=this.outSearch.trim().toLowerCase();
+        if(!kw){this.outSuggestList=[];return;}
+        this.outSuggestList=this.stockList.filter(s=>s.drawNo.toLowerCase().includes(kw));
+    },
+    pickOut(it){
+        this.selectedOutDraw=it.drawNo;
+        this.outSearch=it.drawNo;
+        this.outSuggestList=[];
+        this.outLocOptions=[...new Set(this.stockList.filter(x=>x.drawNo===it.drawNo).map(i=>i.location))];
+        this.outSelectLoc=this.outLocOptions[0];
+        this.outQty = this.getStockByDrawLoc(this.selectedOutDraw, this.outSelectLoc);
+    },
+    onOutLocChange(){
+        this.outQty = this.getStockByDrawLoc(this.selectedOutDraw, this.outSelectLoc);
+    },
+    getStockByDrawLoc(draw,loc){
+        let r=this.stockList.find(x=>x.drawNo===draw && x.location===loc);
+        return r?r.qty:0;
+    },
+    doOut(){
+        if(!this.selectedOutDraw||!this.outSelectLoc){alert("请先选择图号");return;}
+        let rec=this.stockList.find(x=>x.drawNo===this.selectedOutDraw && x.location===this.outSelectLoc);
+        if(!rec){alert("无此库存");return;}
+        let num=Number(this.outQty);
+        if(!num||num<=0){alert("请输入出库数量");return;}
+        if(num>rec.qty){alert("出库数量大于库存");return;}
+        rec.qty-=num;
+        if(rec.qty<=0){
+            this.stockList=this.stockList.filter(x=>!(x.drawNo===this.selectedOutDraw&&x.location===this.outSelectLoc));
+        }
+        this.saveLocal();
+        alert("出库完成");
+        this.addLog("出库",`产品型号:${rec.model}，图号:${this.selectedOutDraw}，名称:${rec.name}，材质:${rec.material}，库位:${this.outSelectLoc}，数量:${num}`);
+        this.clearOutForm();
+    },
+    //移库
+    moveSuggest(){
+        let kw=this.moveSearch.trim().toLowerCase();
+        if(!kw){this.moveSuggestList=[];return;}
+        this.moveSuggestList=this.stockList.filter(s=>s.drawNo.toLowerCase().includes(kw));
+    },
+    pickMove(it){
+        this.selectedMoveDraw=it.drawNo;
+        this.moveSearch=it.drawNo;
+        this.moveSuggestList=[];
+        this.moveLocOptions=[...new Set(this.stockList.filter(x=>x.drawNo===it.drawNo).map(i=>i.location))];
+        this.moveFromLoc=this.moveLocOptions[0];
+        this.moveToLoc="临时待分配";
+        this.moveQty = this.getStockByDrawLoc(this.selectedMoveDraw, this.moveFromLoc);
+    },
+    onMoveLocChange(){
+        this.moveQty = this.getStockByDrawLoc(this.selectedMoveDraw, this.moveFromLoc);
+    },
+    doMove(){
+        if(!this.selectedMoveDraw||!this.moveFromLoc){alert("请先选择图号");return;}
+        if(this.moveFromLoc===this.moveToLoc){alert("原库位不能和目标库位相同");return;}
+        let src=this.stockList.find(x=>x.drawNo===this.selectedMoveDraw && x.location===this.moveFromLoc);
+        if(!src){alert("源库存不存在");return;}
+        let mvNum=Number(this.moveQty);
+        if(!mvNum||mvNum<=0||mvNum>src.qty){alert("移库数量错误");return;}
+        let dst=this.stockList.find(x=>x.drawNo===this.selectedMoveDraw && x.location===this.moveToLoc);
+        if(dst){
+            dst.qty+=mvNum;
+        }else{
+            this.stockList.push({
+                id:Date.now(),
+                name:src.name,
+                model:src.model,
+                drawNo:src.drawNo,
+                material:src.material,
+                qty:mvNum,
+                location:this.moveToLoc
+            })
+        }
+        src.qty-=mvNum;
+        if(src.qty<=0){
+            this.stockList=this.stockList.filter(x=>!(x.drawNo===this.selectedMoveDraw&&x.location===this.moveFromLoc));
+        }
+        this.saveLocal();
+        alert("移库完成");
+        this.addLog("移库",`产品型号:${src.model}，图号:${this.selectedMoveDraw}，名称:${src.name}，材质:${src.material}，原库位:${this.moveFromLoc}→目标库位:${this.moveToLoc}，数量:${mvNum}`);
+        this.clearMoveForm();
+    },
+    //表格编辑
+    startEdit(row){
+        this.editId = row.id;
+        this.editForm = {
+            name:row.name,
+            model:row.model,
+            drawNo:row.drawNo,
+            material:row.material,
+            location:row.location,
+            qty:row.qty
+        }
+    },
+    cancelEdit(){
+        this.editId=null;
+        this.editForm={};
+    },
+    saveEdit(row){
+        if(!this.editForm.drawNo.trim()){
+            alert("图号不能为空");
+            return;
+        }
+        let oldModel = row.model;
+        let oldDrawNo = row.drawNo;
+        let oldName = row.name;
+        let oldMaterial = row.material;
+        let oldLocation = row.location;
+        let oldQty = row.qty;
+
+        row.name=this.editForm.name.trim();
+        row.model=this.editForm.model.trim();
+        row.drawNo=this.editForm.drawNo.trim();
+        row.material=this.editForm.material.trim();
+        row.location=this.editForm.location;
+        row.qty=Number(this.editForm.qty)||0;
+
+        this.addLog("编辑",`ID:${row.id}，修改前【产品型号:${oldModel}，图号:${oldDrawNo}，名称:${oldName}，材质:${oldMaterial}，库位:${oldLocation}，数量:${oldQty}】；修改后【产品型号:${row.model}，图号:${row.drawNo}，名称:${row.name}，材质:${row.material}，库位:${row.location}，数量:${row.qty}】`);
+        this.editId=null;
+        this.editForm={};
+        this.saveLocal();
+    },
+    //删除单条库存
+    delStockRow(row){
+        const tipText = `确定删除该条目？\n产品型号：${row.model}\n图号：${row.drawNo}\n名称：${row.name}\n材质：${row.material}\n库位：${row.location}\n数量：${row.qty}`;
+        if(!confirm(tipText)) return;
+        this.stockList = this.stockList.filter(s=>s.id !== row.id);
+        this.saveLocal();
+        this.addLog("删除",`产品型号:${row.model}，图号:${row.drawNo}，名称:${row.name}，材质:${row.material}，库位:${row.location}，数量:${row.qty}`);
+    },
+    //导入导出
+    triggerImportReplace(){
+        if(!confirm("⚠️警告：此操作会清空当前全部库存数据，用Excel文件内容完全覆盖！确定继续吗？")){
+            return;
+        }
+        this.$refs.fileReplace.click();
+    },
+    triggerImportAppend(){this.$refs.fileAppend.click();},
+    triggerRestoreHtml(){this.$refs.fileRestore.click();},
+    importReplace(e){
+        let f=e.target.files[0];
+        if(!f)return;
+        const reader=new FileReader();
+        reader.onload=(ev)=>{
+            const wb=XLSX.read(ev.target.result,{type:"binary"});
+            const sheet=wb.Sheets[wb.SheetNames[0]];
+            const json=XLSX.utils.sheet_to_json(sheet);
+            this.stockList=json.map((row,idx)=>({
+                id:Date.now()+idx,
+                name:row["工件名称"]||"",
+                model:row["产品型号"]||"",
+                drawNo:String(row["图号"]||"").trim(),
+                material:row["材质"]||"",
+                location:row["库位"]||"临时待分配",
+                qty:Math.max(0,Number(row["库存数量"]||0))
+            })).filter(item=>!!item.drawNo);
+            this.saveLocal();
+            alert("覆盖导入完成");
+            this.addLog("导入","Excel覆盖导入库存数据");
+            this.$refs.fileReplace.value=null;
+        };
+        reader.readAsBinaryString(f);
+    },
+    importAppend(e){
+        let f=e.target.files[0];
+        if(!f)return;
+        const reader=new FileReader();
+        reader.onload=(ev)=>{
+            const wb=XLSX.read(ev.target.result,{type:"binary"});
+            const sheet=wb.Sheets[wb.SheetNames[0]];
+            const json=XLSX.utils.sheet_to_json(sheet);
+            json.forEach(row=>{
+                let d=String(row["图号"]||"").trim();
+                if(!d) return;
+                let loc=row["库位"]||"临时待分配";
+                let q=Math.max(0,Number(row["库存数量"]||0));
+                let exist=this.stockList.find(s=>s.drawNo===d && s.location===loc);
+                if(exist){
+                    exist.qty+=q;
+                }else{
+                    this.stockList.push({
+                        id:Date.now()+Math.random(),
+                        name:row["工件名称"]||"",
+                        model:row["产品型号"]||"",
+                        drawNo:d,
+                        material:row["材质"]||"",
+                        location:loc,
+                        qty:q
+                    })
+                }
+            });
+            this.saveLocal();
+            alert("追加导入完成");
+            this.addLog("导入","Excel追加导入库存数据");
+            this.$refs.fileAppend.value=null;
+        };
+        reader.readAsBinaryString(f);
+    },
+    async exportExcel(){
+        let data=this.stockList.map(r=>({
+            "产品型号":r.model,
+            "图号":r.drawNo,
+            "工件名称":r.name,
+            "材质":r.material,
+            "库位":r.location,
+            "库存数量":r.qty
+        }));
+
+        const ws=XLSX.utils.json_to_sheet(data);
+        const wb=XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb,ws,"库存");
+        const out=XLSX.write(wb,{bookType:"xlsx",type:"array"});
+
+        // PakePlus/Tauri桌面模式
+        if(window.__TAURI__ && window.__TAURI__.dialog && window.__TAURI__.fs){
+            try{
+                const path=await window.__TAURI__.dialog.save({
+                    defaultPath:"焊接车间库存.xlsx",
+                    filters:[{name:"Excel文件",extensions:["xlsx"]}]
+                });
+                if(path){
+                    await window.__TAURI__.fs.writeFile(path,new Uint8Array(out));
+                    alert("导出成功");
+                }
+            }catch(e){
+                alert("桌面导出失败："+e.message);
+            }
+        }else{
+            const blob=new Blob([out],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+            const url=URL.createObjectURL(blob);
+            const a=document.createElement("a");
+            a.href=url;
+            a.download="焊接车间库存.xlsx";
+            a.click();
+            setTimeout(()=>URL.revokeObjectURL(url),3000);
+        }
+        this.addLog("导出","导出Excel库存文件");
+    },
+    async exportHtml(){
+        let html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>库存备份数据</title></head><body><pre>locData=${JSON.stringify(this.locList)}\nstockData=${JSON.stringify(this.stockList)}</pre></body></html>`;
+
+        if(window.__TAURI__ && window.__TAURI__.dialog && window.__TAURI__.fs){
+            try{
+                const path=await window.__TAURI__.dialog.save({
+                    defaultPath:"库存备份.html",
+                    filters:[{name:"HTML文件",extensions:["html"]}]
+                });
+                if(path){
+                    await window.__TAURI__.fs.writeTextFile(path,html);
+                    alert("备份成功");
+                }
+            }catch(e){
+                alert("备份失败："+e.message);
+            }
+        }else{
+            const blob=new Blob([html],{type:"text/html;charset=utf-8"});
+            const a=document.createElement("a");
+            a.href=URL.createObjectURL(blob);
+            a.download="库存备份.html";
+            a.click();
+        }
+        this.addLog("备份","导出HTML备份文件");
+    },
+    restoreHtml(e){
+        let f=e.target.files[0];
+        if(!f) return;
+        const reader=new FileReader();
+        reader.onload=(ev)=>{
+            let htmlText = ev.target.result;
+            let matchLoc = htmlText.match(/locData=(\[.*?\])/);
+            let matchStock = htmlText.match(/stockData=(\[.*?\])/);
+            if(!matchLoc || !matchStock){
+                alert("HTML备份文件解析失败，请确认是本系统导出的备份");
+                return;
+            }
+            try{
+                this.locList = JSON.parse(matchLoc[1]);
+                this.stockList = JSON.parse(matchStock[1]);
+                this.saveLocal();
+                alert("从HTML备份恢复成功");
+                this.addLog("恢复","HTML备份恢复库位+库存");
+            }catch(err){
+                alert("解析备份出错："+err.message);
+            }
+            this.$refs.fileRestore.value=null;
+        };
+        reader.readAsText(f);
+    }
+}
+}).mount("#app");
+</script>
+</body>
+</html>

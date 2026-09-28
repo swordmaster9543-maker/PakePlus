@@ -120,6 +120,7 @@ th{background:#f0f0f0;}
                 </div>
             </div>
             <div class="row" style="margin-top:10px;">
+                <button class="btn-blue" @click="exportLog">导出日志</button>
                 <button class="btn-red" @click="clearLog">清空日志</button>
                 <button class="btn-blue" @click="showLogModal=false">关闭</button>
             </div>
@@ -459,6 +460,41 @@ methods:{
         this.opLog=[];
         this.saveLocal();
     },
+    async exportLog(){
+        if(this.opLog.length===0){await this.showAlert("暂无操作日志可导出");return;}
+        let data=this.opLog.map(r=>({
+            "时间":r.time,
+            "类型":r.type,
+            "内容":r.msg
+        }));
+        const ws=XLSX.utils.json_to_sheet(data);
+        const wb=XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb,ws,"操作日志");
+        const out=XLSX.write(wb,{bookType:"xlsx",type:"array"});
+        const fileName = "操作日志_" + this.buildTimeStamp() + ".xlsx";
+        if(window.__TAURI__ && window.__TAURI__.dialog && window.__TAURI__.fs){
+            try{
+                const path=await window.__TAURI__.dialog.save({
+                    defaultPath:fileName,
+                    filters:[{name:"Excel文件",extensions:["xlsx"]}]
+                });
+                if(path){
+                    await window.__TAURI__.fs.writeFile(path,new Uint8Array(out));
+                    await this.showAlert("日志导出成功");
+                }
+            }catch(e){
+                await this.showAlert("桌面导出失败："+e.message);
+            }
+        }else{
+            const blob=new Blob([out],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+            const url=URL.createObjectURL(blob);
+            const a=document.createElement("a");
+            a.href=url;
+            a.download=fileName;
+            a.click();
+            setTimeout(()=>URL.revokeObjectURL(url),3000);
+        }
+    },
     refreshTable(){
         let arr=[...this.stockList];
         if(this.queryDraw.trim()){
@@ -710,7 +746,12 @@ methods:{
         }
         this.$refs.fileReplace.click();
     },
-    triggerImportAppend(){this.$refs.fileAppend.click();},
+    async triggerImportAppend(){
+        if(!await this.showConfirm("⚠️提示：即将追加导入Excel文件，信息全部相同的条目会累加数量，不同则新增。确定继续吗？")){
+            return;
+        }
+        this.$refs.fileAppend.click();
+    },
     async triggerRestoreHtml(){
         if(!await this.showConfirm("⚠️警告：此操作会清空当前全部库存数据（含库位信息），用HTML备份文件内容完全覆盖！确定继续吗？")){
             return;
@@ -745,8 +786,8 @@ methods:{
             this.pushHistory();
             this.stockList = newList;
             this.saveLocal();
-            await this.showAlert("覆盖导入完成");
-            this.addLog("导入","Excel覆盖导入库存数据");
+            await this.showAlert("Excel覆盖导入完成");
+            this.addLog("覆盖","Excel覆盖导入库存数据");
             this.$refs.fileReplace.value=null;
         };
         reader.readAsBinaryString(f);
@@ -759,6 +800,14 @@ methods:{
             const wb=XLSX.read(ev.target.result,{type:"binary"});
             const sheet=wb.Sheets[wb.SheetNames[0]];
             const json=XLSX.utils.sheet_to_json(sheet);
+
+            // ===== 二段确认：文件已选好、内容已解析，再次确认才真正导入 =====
+            if(!await this.showConfirm("⚠️提示：即将追加导入该Excel文件内容，相同条目会累加数量，不同条目会新增。确定继续吗？")){
+                this.$refs.fileAppend.value=null;
+                return;
+            }
+            // ============================================================
+
             this.pushHistory();
             json.forEach(row=>{
                 let d=String(row["图号"]||"").trim();
@@ -790,8 +839,8 @@ methods:{
                 }
             });
             this.saveLocal();
-            await this.showAlert("追加导入完成");
-            this.addLog("导入","Excel追加导入库存数据");
+            await this.showAlert("Excel追加导入完成");
+            this.addLog("追加","Excel追加导入库存数据");
             this.$refs.fileAppend.value=null;
         };
         reader.readAsBinaryString(f);
@@ -890,8 +939,8 @@ methods:{
                 this.locList = newLoc;
                 this.stockList = newStock;
                 this.saveLocal();
-                await this.showAlert("从HTML备份恢复成功");
-                this.addLog("恢复","HTML备份恢复库位+库存");
+                await this.showAlert("HTML备份覆盖导入完成");
+                this.addLog("覆盖","HTML备份覆盖导入库位+库存");
             }catch(err){
                 await this.showAlert("解析备份出错："+err.message);
             }

@@ -13,7 +13,8 @@ h1{font-size:18px;margin:0 0 12px 0;font-weight:bold;}
 h2{font-size:14px;margin:14px 0 8px 0;font-weight:bold;}
 .section{border:1px solid #cccccc;padding:14px;margin-bottom:14px;border-radius:2px;}
 .row{margin:8px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.row label{width:90px;text-align:right;white-space:nowrap;}
+.row label{width:65px;text-align:left;white-space:nowrap;flex-shrink:0;position:relative;padding-left:6px;}
+.row label .required{position:absolute;left:0;top:50%;transform:translateY(-50%);color:red;font-weight:bold;line-height:1;font-size:12px;}
 .required{color:red;}
 input,select{border:1px solid #999;padding:4px 6px;min-width:160px;}
 textarea{border:1px solid #999;padding:6px;min-width:320px;font-family:inherit;font-size:13px;resize:vertical;}
@@ -86,7 +87,6 @@ th{background:#f0f0f0;}
     font-weight:bold;
     color:#2b78e4;
 }
-/* 信息弹窗（可关闭） */
 .info-modal{
     background:#fff;
     border:1px solid #888;
@@ -122,7 +122,6 @@ th{background:#f0f0f0;}
 .info-modal-footer{
     text-align:right;
 }
-/* 操作日志内的存储状态栏 */
 .storage-bar{
     display:flex;
     align-items:center;
@@ -136,37 +135,74 @@ th{background:#f0f0f0;}
     margin-bottom:10px;
     flex-wrap:wrap;
 }
-.storage-bar .item{
-    display:inline-flex;
-    align-items:center;
-    gap:5px;
-}
-.storage-bar .dot{
-    width:8px;height:8px;border-radius:50%;display:inline-block;
-}
+.storage-bar .item{ display:inline-flex; align-items:center; gap:5px; }
+.storage-bar .dot{ width:8px;height:8px;border-radius:50%;display:inline-block; }
 .storage-bar .dot.ok{background:#28a745;}
 .storage-bar .dot.warn{background:#f0ad4e;}
 .storage-bar .dot.bad{background:#dc3545;}
-.storage-bar.error{
-    border-color:#f5c6cb;
-    background:#fdf0f0;
-    color:#b71c1c;
+.storage-bar.error{ border-color:#f5c6cb; background:#fdf0f0; color:#b71c1c; }
+.storage-bar .storage-label{ font-weight:bold; }
+
+table tbody tr:hover td{ background:#e8f0fe; }
+
+/* ===== 可横向+纵向拖拽的输入框 ===== */
+.resizable-both{
+    resize: both;
+    overflow: auto;
+    min-width: 200px;
+    min-height: 28px;
+    max-width: 100%;
+    max-height: 400px;
+    display: inline-block;
+    vertical-align: top;
+    font-family: inherit;
+    font-size: 13px;
+    padding: 4px 6px;
+    border: 1px solid #999;
+    line-height: 1.4;
 }
-.storage-bar .storage-label{
-    font-weight:bold;
+/* 产品型号：恢复原 input 的默认宽度 360px、单行高度 28px */
+.resizable-both.model-filter{
+    min-width: 360px;
+    min-height: 28px;
+    height: 28px;
 }
 
-/* 库存查询表格悬停变色 */
-table tbody tr:hover td{
-    background:#e8f0fe;
+/* 工件入库区 + 库存查询区：输入框/下拉框统一高度 28px */
+.in-section input,
+.in-section select,
+.query-section input,
+.query-section select{
+    height: 28px;
+    padding: 0 6px;
+    line-height: 26px;
+    box-sizing: border-box;
+}
+/* 按钮文字高度 */
+.btn-blue,.btn-green,.btn-red,.btn-orange,.btn-purple,.btn-teal,.btn-gray{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 26px;
+    padding: 0 12px;
+    line-height: 1;
+    vertical-align: middle;
 }
 </style>
 </head>
 <body>
 <div id="app">
     <div id="libError">
-        <b>⚠️ 依赖库加载失败</b><br>
-        请确认 <code>vue.global.prod.js</code> 和 <code>xlsx.full.min.js</code> 已放在与 <code>index.html</code> 相同的目录下。
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+            <div>
+                <b>⚠️ 依赖库加载失败</b><br>
+                请确认 <code>vue.global.prod.js</code> 和 <code>xlsx.full.min.js</code> 已放在与 <code>index.html</code> 相同的目录下。
+            </div>
+            <button type="button" onclick="document.getElementById('libError').style.display='none'"
+                    style="background:#ffc107;border:none;padding:4px 10px;border-radius:2px;cursor:pointer;white-space:nowrap;color:#856404;font-weight:bold;">
+                关闭
+            </button>
+        </div>
     </div>
     <h1>焊接车间工件库存管理</h1>
     <div class="row" style="position:relative;">
@@ -179,7 +215,6 @@ table tbody tr:hover td{
             {{ showTips ? '隐藏提示' : '显示提示' }}
         </button>
     </div>
-    <!-- 库位弹窗 -->
     <div v-if="showLocModal" class="modal-mask" @click.self="showLocModal=false">
         <div class="modal">
             <h2>库位管理</h2>
@@ -201,7 +236,6 @@ table tbody tr:hover td{
             <button class="btn-blue" @click="showLocModal=false" style="margin-top:10px;">关闭</button>
         </div>
     </div>
-    <!-- 操作日志弹窗（含存储状态栏） -->
     <div v-if="showLogModal" class="modal-mask" @click.self="showLogModal=false">
         <div class="modal">
             <h2>操作日志</h2>
@@ -227,7 +261,6 @@ table tbody tr:hover td{
             </div>
         </div>
     </div>
-    <!-- 通用信息弹窗（可关闭） -->
     <div v-if="showInfoModal" class="modal-mask" @click.self="closeInfo">
         <div class="info-modal" @click.stop>
             <div class="info-modal-title">💡 {{ infoTitle }}</div>
@@ -237,9 +270,10 @@ table tbody tr:hover td{
             </div>
         </div>
     </div>
+
     <!-- 工件入库 -->
-    <div class="section">
-        <h2>工件入库（默认入库：临时待分配） <span class="required">*为必填</span></h2>
+    <div class="section in-section">
+        <h2>工件入库 <span class="required">（*为必填）</span></h2>
         <div class="row">
             <label>产品型号:</label>
             <input v-model="inForm.model" :placeholder="showTips ? '手动输入产品型号' : ''">
@@ -271,14 +305,19 @@ table tbody tr:hover td{
         </div>
     </div>
 
-    <!-- ===== 出库/移库中心 ===== -->
+    <!-- 出库 / 移库操作 -->
     <div class="section">
-        <h2 style="color:#000;">📦 出库 / 移库操作</h2>
+        <h2 style="color:#000;">出库 / 移库操作</h2>
 
-        <!-- 产品型号筛选 + 包含空型号按钮 -->
         <div class="row">
-            <label style="width:auto;">产品型号：</label>
-            <input v-model="batchModelFilter" :placeholder="showTips ? '可选，多个型号用逗号/空格分隔，留空表示不限制' : ''" style="min-width:360px;">
+            <label>产品型号：</label>
+            <textarea
+                v-model="batchModelFilter"
+                rows="1"
+                class="resizable-both model-filter"
+                :placeholder="showTips ? '可选，多个型号用逗号/空格分隔，留空表示不限制' : ''"
+                @keydown.enter.prevent
+            ></textarea>
             <button
                 :class="batchIncludeEmptyModel ? 'btn-green' : 'btn-gray'"
                 @click="toggleIncludeEmptyModel"
@@ -287,18 +326,19 @@ table tbody tr:hover td{
                 {{ batchIncludeEmptyModel ? '✅ 已包含空型号' : '⬜ 包含空型号' }}
             </button>
         </div>
-        <!-- 图号列表 + 导入Excel检索（图号/型号改为按钮切换） -->
-        <div class="row">
-            <label style="width:auto;">图号列表：</label>
-            <textarea v-model="batchSearchInput" rows="4" cols="60" :placeholder="showTips ? '每行一个图号，或用逗号/空格分隔。留空表示不限制图号（仅按型号检索时可不填）。例如：\nT1234\nT5678\n或 T1234, T5678 T9012' : ''"></textarea>
-        </div>
-        <div class="row">
-            <button class="btn-blue" @click="doBatchSearch">🔍 批量检索</button>
-            <button class="btn-red" @click="clearBatchSearch">清空输入</button>
 
-            <!-- 导入Excel检索：按钮 + 图号/型号切换按钮 -->
+        <div class="row">
+            <label>图号列表：</label>
+            <textarea v-model="batchSearchInput" rows="4" cols="60" class="resizable-both"
+                :placeholder="showTips ? '每行一个图号，或用逗号/空格分隔。留空表示不限制图号（仅按型号检索时可不填）。例如：\nT1234\nT5678\n或 T1234, T5678 T9012' : ''"></textarea>
+        </div>
+
+        <div class="row">
+            <label></label>
+            <button class="btn-blue" @click="doBatchSearch">批量检索</button>
+            <button class="btn-red" @click="clearBatchSearch">清空输入</button>
             <span style="display:inline-flex;align-items:center;gap:6px;border-left:1px solid #ccc;padding-left:8px;margin-left:2px;">
-                <button class="btn-orange" @click="triggerImportSearchExcel">📂 导入Excel检索</button>
+                <button class="btn-blue" @click="triggerImportSearchExcel">导入Excel检索</button>
                 <span style="color:#555;font-size:12px;">导入：</span>
                 <button
                     :class="importDrawChecked ? 'btn-green' : 'btn-gray'"
@@ -315,7 +355,6 @@ table tbody tr:hover td{
                     {{ importModelChecked ? '✅ 型号' : '⬜ 型号' }}
                 </button>
             </span>
-
             <input type="file" ref="fileSearchExcel" style="display:none;" accept=".xlsx,.xls" @change="importSearchExcel" />
             <span style="color:#666;font-size:12px;" v-if="batchSearchResults.length>0">
                 共 {{batchSearchResults.length}} 个图号，匹配到 {{batchMatchedCount}} 个库存条目
@@ -325,12 +364,10 @@ table tbody tr:hover td{
             📌 批量检索：图号列表和产品型号筛选框，<b>二者至少填一个</b>即可检索。只填图号按图号查；只填型号按型号查；两者都填则按“图号+型号”组合过滤。导入Excel检索：点击“图号”“型号”按钮切换选中状态。
         </div>
 
-        <!-- 检索结果列表 -->
         <div v-if="batchSearchResults.length>0" style="margin-top:10px;">
-            <!-- 批量操作栏 -->
             <div class="batch-action-bar">
                 <span class="bar-label">批量操作：</span>
-                <button class="btn-green" @click="batchOutAll" :disabled="batchMatchedCount===0">一键出库全部匹配项</button>
+                <button class="btn-orange" @click="batchOutAll" :disabled="batchMatchedCount===0">一键出库全部匹配项</button>
                 <button class="btn-orange" @click="batchOutSelected" :disabled="batchSelectedCount===0">出库选中项 ({{batchSelectedCount}})</button>
                 <span style="width:1px;height:20px;background:#bbb;margin:0 4px;"></span>
                 <label style="width:auto;font-weight:bold;color:#00897b;">目标库位：</label>
@@ -342,7 +379,7 @@ table tbody tr:hover td{
                 <button class="btn-teal" @click="batchMoveSelected" :disabled="batchSelectedCount===0 || !batchMoveTargetLoc">移库选中项 ({{batchSelectedCount}})</button>
                 <button class="btn-teal" @click="batchMoveAll" :disabled="batchMatchedCount===0 || !batchMoveTargetLoc">一键移库全部匹配项</button>
                 <span style="width:1px;height:20px;background:#bbb;margin:0 4px;"></span>
-                <button class="btn-purple" @click="exportBatchResult">📤 导出检索结果Excel</button>
+                <button class="btn-blue" @click="exportBatchResult">导出检索结果Excel</button>
             </div>
 
             <div class="batch-result-box">
@@ -371,15 +408,16 @@ table tbody tr:hover td{
         <div v-else-if="batchSearched" style="color:#888;margin-top:8px;">未检索到任何匹配的库存，请检查输入。</div>
     </div>
 
-    <!-- 导入导出 -->
+    <!-- 数据导入导出 -->
     <div class="section">
         <h2>数据导入导出</h2>
         <div class="row">
-            <button class="btn-orange" @click="triggerImportReplace">导入Excel(覆盖全部)</button>
-            <button class="btn-green" @click="triggerImportAppend">导入Excel(追加不覆盖)</button>
-            <button class="btn-blue" @click="exportExcel">导出全部库存Excel</button>
-            <button class="btn-orange" @click="triggerRestoreHtml">导入HTML备份(覆盖全部)</button>
-            <button class="btn-blue" @click="exportHtml">导出HTML备份</button>
+            <button class="btn-blue" @click="triggerImportReplace">导入Excel(覆盖全部)</button>
+            <button class="btn-blue" @click="triggerImportAppend">导入Excel(追加不覆盖)</button>
+            <button class="btn-blue" @click="triggerRestoreHtml">导入备份(覆盖全部)</button>
+            <span style="display:inline-flex;align-items:center;gap:6px;border-left:1px solid #ccc;padding-left:8px;margin-left:2px;">
+            <button class="btn-green" @click="exportExcel">导出Excel</button>
+            <button class="btn-green" @click="exportHtml">导出备份</button>
             <input type="file" ref="fileReplace" style="display:none;" accept=".xlsx,.xls" @change="importReplace" />
             <input type="file" ref="fileAppend" style="display:none;" accept=".xlsx,.xls" @change="importAppend" />
             <input type="file" ref="fileRestore" style="display:none;" accept=".html" @change="restoreHtml" />
@@ -391,13 +429,14 @@ table tbody tr:hover td{
             📌存储：使用 IndexedDB，可稳定存储数万条库存记录。
         </div>
     </div>
-    <!--库存查询-->
-    <div class="section">
+
+    <!-- 库存查询 -->
+    <div class="section query-section">
         <h2>库存查询
             <span style="font-weight:normal;font-size:12px;">｜合计库存条目：{{tableData.length}} 总数量：{{totalStockQty}}</span>
         </h2>
         <div class="row">
-            <label>搜索产品型号:</label>
+            <label style="width:auto;min-width:90px;">搜索产品型号:</label>
             <input v-model="queryModel" :placeholder="showTips ? '输入产品型号搜索' : ''" @input="refreshTable">
             <label>搜索图号:</label>
             <input v-model="queryDraw" :placeholder="showTips ? '输入图号搜索' : ''" @input="refreshTable">
@@ -413,6 +452,7 @@ table tbody tr:hover td{
         <table>
             <thead>
                 <tr>
+                    <th style="width:50px;">序号</th>
                     <th>产品型号</th>
                     <th>图号</th>
                     <th>工件名称</th>
@@ -423,7 +463,8 @@ table tbody tr:hover td{
                 </tr>
             </thead>
             <tbody>
-                <tr v-for="row in tableData" :key="row.id">
+                <tr v-for="(row, index) in tableData" :key="row.id">
+                    <td>{{ index + 1 }}</td>
                     <td v-if="editId!==row.id">{{row.model}}</td>
                     <td v-else><input v-model="editForm.model" /></td>
                     <td v-if="editId!==row.id">{{row.drawNo}}</td>
@@ -453,14 +494,14 @@ table tbody tr:hover td{
                     </td>
                 </tr>
                 <tr v-if="tableData.length===0">
-                    <td colspan="7" style="color:#777;">暂无库存数据</td>
+                    <td colspan="8" style="color:#777;">暂无库存数据</td>
                 </tr>
             </tbody>
         </table>
     </div>
 </div>
 <script>
-// ================== IndexedDB 轻量封装（写入前深度克隆） ==================
+// ================== IndexedDB 轻量封装 ==================
 const DB_NAME = 'weldStockDB';
 const DB_VERSION = 1;
 const STORE_META = 'meta';
@@ -468,10 +509,27 @@ const STORE_STOCK = 'stock';
 const STORE_LOG = 'log';
 
 let dbPromise = null;
+
+function withTimeout(promise, ms, label){
+    return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error((label||"操作") + " 超时（" + ms + "ms）")), ms)
+        )
+    ]);
+}
+
 function openDB(){
     if(dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject) => {
-        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        let req;
+        try{
+            req = indexedDB.open(DB_NAME, DB_VERSION);
+        }catch(e){
+            dbPromise = null;
+            reject(e);
+            return;
+        }
         req.onupgradeneeded = (e) => {
             const db = e.target.result;
             if(!db.objectStoreNames.contains(STORE_META)){
@@ -484,8 +542,20 @@ function openDB(){
                 db.createObjectStore(STORE_LOG, {keyPath: 'id'});
             }
         };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
+        req.onsuccess = () => {
+            const db = req.result;
+            db.onclose = () => { dbPromise = null; };
+            db.onversionchange = () => { try{ db.close(); }catch(_){}; dbPromise = null; };
+            resolve(db);
+        };
+        req.onerror = () => {
+            dbPromise = null;
+            reject(req.error || new Error("IndexedDB 打开失败"));
+        };
+        req.onblocked = () => {
+            dbPromise = null;
+            reject(new Error("IndexedDB 被其他标签页占用（blocked）"));
+        };
     });
     return dbPromise;
 }
@@ -507,20 +577,14 @@ function idbClear(storeName){
     }));
 }
 function toPlain(obj){
-    try{
-        return JSON.parse(JSON.stringify(obj));
-    }catch(e){
-        return obj;
-    }
+    try{ return JSON.parse(JSON.stringify(obj)); }catch(e){ return obj; }
 }
 function idbPutMany(storeName, items){
     return openDB().then(db => new Promise((resolve, reject) => {
         if(!items || items.length === 0){ resolve(); return; }
         const tx = db.transaction(storeName, 'readwrite');
         const store = tx.objectStore(storeName);
-        items.forEach(it => {
-            store.put(toPlain(it));
-        });
+        items.forEach(it => { store.put(toPlain(it)); });
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
     }));
@@ -565,6 +629,7 @@ data(){
         infoMessage:"",
         _infoResolve:null,
         _infoSkipped:false,
+        _infoTimer:null,
         showTips: false,
         inForm:{name:"",model:"",drawNo:"",material:"",qty:null,location:"临时待分配"},
         queryModel:"",
@@ -595,15 +660,39 @@ computed:{
         if(this.dbError) return 'bad';
         if(this.storageMode === 'IndexedDB') return 'ok';
         if(this.storageMode.includes('localStorage')) return 'warn';
+        if(this.storageMode.includes('内存模式')) return 'bad';
         return 'warn';
     }
 },
 async mounted(){
-    await this.loadLocal();
-    this.refreshTable();
+    try{
+        await this.loadLocal();
+    }catch(e){
+        console.error("loadLocal 异常", e);
+        this.dbError = "初始化读取异常：" + (e.message || e);
+        this.storageMode = '内存模式（不持久）';
+    }
+    try{
+        this.refreshTable();
+    }catch(e){
+        console.error("refreshTable 异常", e);
+    }
+    if(this.storageMode.includes('内存模式')){
+        this.showInfo(
+            "检测到持久化存储不可用（IndexedDB 与 localStorage 均无法使用）。\n" +
+            "当前数据仅保存在内存中，关闭页面后会丢失，请及时使用“导出”功能备份。",
+            "存储不可用"
+        );
+    }
+    document.addEventListener('visibilitychange', () => {
+        if(document.visibilityState === 'visible'){
+            if(this.showInfoModal && !this._infoResolve){
+                this.showInfoModal = false;
+            }
+        }
+    });
 },
 methods:{
-    // ================== 提示（信息弹窗可关闭，带 Promise） ==================
     isTauri(){
         return !!(window.__TAURI__ && window.__TAURI__.dialog);
     },
@@ -611,25 +700,34 @@ methods:{
         if(this._infoResolve){
             const old = this._infoResolve;
             this._infoResolve = null;
-            this._infoSkipped = true;
-            old(false);
+            try{ old(false); }catch(_){}
         }
+        if(this._infoTimer){ clearTimeout(this._infoTimer); this._infoTimer = null; }
         this.infoTitle = title || "提示";
         this.infoMessage = String(msg || "");
         this.showInfoModal = true;
         this._infoSkipped = false;
         return new Promise(resolve => {
             this._infoResolve = resolve;
+            this._infoTimer = setTimeout(() => {
+                if(this._infoResolve === resolve){
+                    this._infoResolve = null;
+                    this.showInfoModal = false;
+                    try{ resolve(false); }catch(_){}
+                }
+                this._infoTimer = null;
+            }, 30000);
         });
     },
     closeInfo(){
+        if(this._infoTimer){ clearTimeout(this._infoTimer); this._infoTimer = null; }
         this.showInfoModal = false;
         this.infoMessage = "";
         this.infoTitle = "提示";
         if(this._infoResolve){
             const r = this._infoResolve;
             this._infoResolve = null;
-            r(true);
+            try{ r(true); }catch(_){}
         }
     },
     async showConfirm(msg, title){
@@ -667,7 +765,6 @@ methods:{
             pad(d.getSeconds())
         );
     },
-    // ================== 历史快照 ==================
     makeSnapshot(){
         return JSON.stringify({loc:this.locList, stock:this.stockList});
     },
@@ -683,8 +780,6 @@ methods:{
         this.editId=null;
         this.editForm={};
         this.rebuildLocListFromStock();
-        await this.persistAll();
-        this.refreshTable();
     },
     async undo(){
         if(this.undoStack.length===0){await this.showInfo("没有可撤销的操作");return;}
@@ -714,22 +809,24 @@ methods:{
             this.locList = [...(this.locList || []).filter(Boolean), ...extra];
         }
     },
-    // ================== 存储读写 ==================
     async loadLocal(){
         let loadedFromIDB = false;
         try{
-            const [locVal, stockRows, logRows] = await Promise.all([
-                idbGetMeta('locList'),
-                idbGetAll(STORE_STOCK),
-                idbGetAll(STORE_LOG),
-            ]);
+            const [locVal, stockRows, logRows] = await withTimeout(
+                Promise.all([
+                    idbGetMeta('locList'),
+                    idbGetAll(STORE_STOCK),
+                    idbGetAll(STORE_LOG),
+                ]),
+                8000, "IndexedDB 读取"
+            );
             this.locList = Array.isArray(locVal) ? locVal : [];
             this.stockList = stockRows || [];
             this.opLog = (logRows || []).sort((a,b)=>b.id - a.id);
             this.rebuildLocListFromStock();
+            this.dbError = "";
             if(this.stockList.length > 0 || this.locList.length > 0 || this.opLog.length > 0){
                 this.storageMode = 'IndexedDB';
-                this.dbError = "";
                 loadedFromIDB = true;
             }
         }catch(e){
@@ -738,6 +835,7 @@ methods:{
         }
 
         if(!loadedFromIDB){
+            let lsOk = false;
             try{
                 const lsLoc = localStorage.getItem("weldLoc");
                 const lsStock = localStorage.getItem("weldStock");
@@ -748,12 +846,15 @@ methods:{
                     if(lsLog) this.opLog = JSON.parse(lsLog);
                     this.rebuildLocListFromStock();
                     this.storageMode = 'localStorage（回退，已迁移）';
+                    lsOk = true;
                     try{
-                        await idbPutMeta('locList', this.locList);
-                        await idbClear(STORE_STOCK);
-                        await idbPutMany(STORE_STOCK, this.stockList);
-                        await idbClear(STORE_LOG);
-                        await idbPutMany(STORE_LOG, this.opLog);
+                        await withTimeout(Promise.all([
+                            idbPutMeta('locList', this.locList),
+                            idbClear(STORE_STOCK),
+                            idbPutMany(STORE_STOCK, this.stockList),
+                            idbClear(STORE_LOG),
+                            idbPutMany(STORE_LOG, this.opLog),
+                        ]), 8000, "IndexedDB 迁移写入");
                         localStorage.removeItem("weldLoc");
                         localStorage.removeItem("weldStock");
                         localStorage.removeItem("weldLog");
@@ -761,24 +862,33 @@ methods:{
                         this.dbError = "";
                     }catch(e2){
                         console.warn("迁移到 IndexedDB 失败，继续使用 localStorage", e2);
-                        this.dbError = "迁移到 IndexedDB 失败，继续使用 localStorage：" + (e2.message || e2);
+                        this.dbError = "迁移到 IndexedDB 失败：" + (e2.message || e2);
                     }
                     return;
                 }
-            }catch(_){}
-            this.storageMode = 'IndexedDB（空库）';
-            if(!this.dbError){
-                this.dbError = "";
+            }catch(e){
+                console.error("localStorage 读取失败", e);
+                this.dbError = "⚠️ IndexedDB 与 localStorage 均不可用，当前为内存模式（数据不会持久保存）";
+            }
+
+            if(!lsOk){
+                if(!this.dbError){
+                    this.storageMode = 'IndexedDB（空库）';
+                }else{
+                    this.storageMode = '内存模式（不持久）';
+                }
             }
         }
     },
     async persistAll(){
         try{
-            await idbPutMeta('locList', this.locList);
-            await idbClear(STORE_STOCK);
-            await idbPutMany(STORE_STOCK, this.stockList);
-            await idbClear(STORE_LOG);
-            await idbPutMany(STORE_LOG, this.opLog);
+            await withTimeout(Promise.all([
+                idbPutMeta('locList', this.locList),
+                idbClear(STORE_STOCK),
+                idbPutMany(STORE_STOCK, this.stockList),
+                idbClear(STORE_LOG),
+                idbPutMany(STORE_LOG, this.opLog),
+            ]), 8000, "IndexedDB 写入");
             if(this.storageMode !== 'IndexedDB'){
                 this.storageMode = 'IndexedDB';
             }
@@ -788,15 +898,17 @@ methods:{
             console.error("IndexedDB 写入失败", e);
             this.dbError = "IndexedDB 写入失败：" + (e.message || e);
         }
+
         try{
-            localStorage.setItem("weldLoc",JSON.stringify(this.locList));
-            localStorage.setItem("weldStock",JSON.stringify(this.stockList));
-            localStorage.setItem("weldLog",JSON.stringify(this.opLog));
+            localStorage.setItem("weldLoc", JSON.stringify(this.locList));
+            localStorage.setItem("weldStock", JSON.stringify(this.stockList));
+            localStorage.setItem("weldLog", JSON.stringify(this.opLog));
             this.storageMode = 'localStorage（回退）';
             return;
         }catch(err){
+            console.error("localStorage 写入失败", err);
             this.storageMode = '内存模式（不持久）';
-            this.dbError = "存储已满，请导出备份后清理数据";
+            this.dbError = "⚠️ 所有持久化存储均不可用，数据仅在本次会话内有效，请尽快导出备份！";
         }
     },
     async saveLocal(){
@@ -823,11 +935,7 @@ methods:{
     },
     async exportLog(){
         if(this.opLog.length===0){await this.showInfo("暂无操作日志可导出");return;}
-        let data=this.opLog.map(r=>({
-            "时间":r.time,
-            "类型":r.type,
-            "内容":r.msg
-        }));
+        let data=this.opLog.map(r=>({ "时间":r.time, "类型":r.type, "内容":r.msg }));
         const ws=XLSX.utils.json_to_sheet(data);
         const wb=XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb,ws,"操作日志");
@@ -856,7 +964,6 @@ methods:{
             setTimeout(()=>URL.revokeObjectURL(url),3000);
         }
     },
-    // ================== 库存查询 ==================
     refreshTable(){
         let arr=[...this.stockList];
         if(this.queryDraw.trim()){
@@ -882,7 +989,6 @@ methods:{
     toggleIncludeEmptyModel(){
         this.batchIncludeEmptyModel = !this.batchIncludeEmptyModel;
     },
-    // ================== 批量检索 ==================
     parseBatchInput(input){
         let tokens = input.split(/[\n,，\s]+/).map(s=>s.trim()).filter(s=>s.length>0);
         return [...new Set(tokens)];
@@ -931,13 +1037,9 @@ methods:{
                 modelFilters.forEach(mf => {
                     results.push({
                         drawNo: "（无图号）",
-                        matched: false,
-                        filtered: false,
-                        id: null,
-                        model: mf,
-                        name:"", material:"", location:"", qty:0,
-                        outQty:0,
-                        checked: false
+                        matched: false, filtered: false, id: null,
+                        model: mf, name:"", material:"", location:"", qty:0,
+                        outQty:0, checked: false
                     });
                 });
             }
@@ -962,43 +1064,25 @@ methods:{
                     }
                     if(passModel){
                         results.push({
-                            drawNo: m.drawNo,
-                            matched: true,
-                            filtered: false,
-                            id: m.id,
-                            model: m.model,
-                            name: m.name,
-                            material: m.material,
-                            location: m.location,
-                            qty: Number(m.qty),
-                            outQty: Number(m.qty),
-                            checked: false
+                            drawNo: m.drawNo, matched: true, filtered: false,
+                            id: m.id, model: m.model, name: m.name, material: m.material,
+                            location: m.location, qty: Number(m.qty),
+                            outQty: Number(m.qty), checked: false
                         });
                     }else{
                         results.push({
-                            drawNo: m.drawNo,
-                            matched: false,
-                            filtered: true,
-                            id: m.id,
-                            model: m.model,
-                            name: m.name,
-                            material: m.material,
-                            location: m.location,
-                            qty: Number(m.qty),
-                            outQty: 0,
-                            checked: false
+                            drawNo: m.drawNo, matched: false, filtered: true,
+                            id: m.id, model: m.model, name: m.name, material: m.material,
+                            location: m.location, qty: Number(m.qty),
+                            outQty: 0, checked: false
                         });
                     }
                 });
             }else{
                 results.push({
-                    drawNo: drawNo,
-                    matched: false,
-                    filtered: false,
-                    id: null,
+                    drawNo: drawNo, matched: false, filtered: false, id: null,
                     model:"", name:"", material:"", location:"", qty:0,
-                    outQty:0,
-                    checked: false
+                    outQty:0, checked: false
                 });
             }
         });
@@ -1022,29 +1106,17 @@ methods:{
             if(matches.length > 0){
                 matches.forEach(m => {
                     results.push({
-                        drawNo: m.drawNo,
-                        matched: true,
-                        filtered: false,
-                        id: m.id,
-                        model: m.model,
-                        name: m.name,
-                        material: m.material,
-                        location: m.location,
-                        qty: Number(m.qty),
-                        outQty: Number(m.qty),
-                        checked: false
+                        drawNo: m.drawNo, matched: true, filtered: false,
+                        id: m.id, model: m.model, name: m.name, material: m.material,
+                        location: m.location, qty: Number(m.qty),
+                        outQty: Number(m.qty), checked: false
                     });
                 });
             }else{
                 results.push({
-                    drawNo: drawNo,
-                    matched: false,
-                    filtered: false,
-                    id: null,
-                    model: model,
-                    name:"", material:"", location:"", qty:0,
-                    outQty:0,
-                    checked: false
+                    drawNo: drawNo, matched: false, filtered: false, id: null,
+                    model: model, name:"", material:"", location:"", qty:0,
+                    outQty:0, checked: false
                 });
             }
         });
@@ -1062,7 +1134,6 @@ methods:{
         this.batchSearched = false;
         this.batchMoveTargetLoc = "";
     },
-    // ================== 导入Excel检索 ==================
     triggerImportSearchExcel(){
         const draw = this.importDrawChecked;
         const model = this.importModelChecked;
@@ -1150,14 +1221,13 @@ methods:{
             this.$refs.fileSearchExcel.value = null;
         }
     },
-    // ================== 导出检索结果 ==================
     async exportBatchResult(){
         if(this.batchSearchResults.length === 0){
             await this.showInfo("暂无检索结果可导出，请先执行批量检索");
             return;
         }
         let data = this.batchSearchResults.map(r=>({
-            "图号": r.drawNo,
+            "图号": (r.drawNo === "（无图号）") ? "" : r.drawNo,
             "是否匹配": r.matched ? "已匹配" : (r.filtered ? "型号不符被过滤" : "未找到"),
             "产品型号": r.matched ? r.model : (r.filtered ? r.model : ""),
             "工件名称": r.matched ? r.name : (r.filtered ? r.name : ""),
@@ -1171,7 +1241,6 @@ methods:{
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "批量检索结果");
         const out = XLSX.write(wb, {bookType:"xlsx", type:"array"});
-
         const fileName = "批量检索结果_" + this.buildTimeStamp() + ".xlsx";
 
         if(window.__TAURI__ && window.__TAURI__.dialog && window.__TAURI__.fs){
@@ -1199,7 +1268,6 @@ methods:{
             await this.addLog("导出", "导出批量检索结果：" + fileName);
         }
     },
-    // ================== 单条出库 / 单条移库 ==================
     async singleOutFromBatch(item){
         if(!item.matched) return;
         if(!item.outQty || item.outQty <= 0){
@@ -1210,24 +1278,23 @@ methods:{
             await this.showInfo("出库数量不能大于库存数量");
             return;
         }
+        const actualOut = Number(item.outQty);
         this.pushHistory();
         const rec = this.stockList.find(x => x.id === item.id);
         if(!rec){
             await this.showInfo("库存记录已变更，请重新检索");
             return;
         }
-        rec.qty -= item.outQty;
+        rec.qty -= actualOut;
         if(rec.qty <= 0){
             this.stockList = this.stockList.filter(x => x.id !== item.id);
-        }
-        const idx = this.batchSearchResults.indexOf(item);
-        if(rec.qty <= 0){
-            this.batchSearchResults.splice(idx, 1);
+            const idx = this.batchSearchResults.indexOf(item);
+            if(idx > -1) this.batchSearchResults.splice(idx, 1);
         }else{
             item.qty = rec.qty;
             item.outQty = rec.qty;
         }
-        this.addLogOnly("批量出库", `图号:${item.drawNo}，库位:${item.location}，数量:${item.outQty}`);
+        this.addLogOnly("批量出库", `图号:${item.drawNo}，库位:${item.location}，数量:${actualOut}`);
         await this.saveLocal();
         await this.showInfo("出库完成");
     },
@@ -1277,7 +1344,6 @@ methods:{
         await this.saveLocal();
         await this.showInfo("移库完成");
     },
-    // ================== 批量出库 ==================
     async batchOutSelected(){
         const selected = this.batchSearchResults.filter(r => r.matched && r.checked);
         if(selected.length === 0){
@@ -1304,7 +1370,8 @@ methods:{
                 errorMsgs.push(`${item.drawNo} 出库数量 ${item.outQty} 大于库存 ${rec.qty}`);
                 continue;
             }
-            rec.qty -= item.outQty;
+            const actualOut = Number(item.outQty);
+            rec.qty -= actualOut;
             if(rec.qty <= 0){
                 this.stockList = this.stockList.filter(x => x.id !== item.id);
             }else{
@@ -1312,7 +1379,7 @@ methods:{
                 item.outQty = rec.qty;
             }
             successCount++;
-            this.addLogOnly("批量出库", `图号:${item.drawNo}，库位:${item.location}，数量:${item.outQty}`);
+            this.addLogOnly("批量出库", `图号:${item.drawNo}，库位:${item.location}，数量:${actualOut}`);
         }
         await this.saveLocal();
         this.batchSearchResults = this.batchSearchResults.filter(r => {
@@ -1347,20 +1414,19 @@ methods:{
                 continue;
             }
             const outNum = rec.qty;
-            rec.qty = 0;
             this.stockList = this.stockList.filter(x => x.id !== item.id);
+            const idx = this.batchSearchResults.indexOf(item);
+            if(idx > -1) this.batchSearchResults.splice(idx, 1);
             successCount++;
             this.addLogOnly("批量出库", `图号:${item.drawNo}，库位:${item.location}，数量:${outNum}`);
         }
         await this.saveLocal();
-        this.batchSearchResults = this.batchSearchResults.filter(r => !r.matched);
         let msg = `一键出库完成：成功 ${successCount} 条`;
         if(errorMsgs.length > 0){
             msg += `，失败 ${errorMsgs.length} 条（${errorMsgs.join("；")}）`;
         }
         await this.showInfo(msg);
     },
-    // ================== 批量移库 ==================
     doMoveItemToLoc(item, targetLoc){
         const rec = this.stockList.find(x => x.id === item.id);
         if(!rec) return {success:false, error:`${item.drawNo} 库存已不存在`};
@@ -1368,6 +1434,7 @@ methods:{
         const qty = Number(rec.qty);
         if(qty <= 0) return {success:false, error:`${item.drawNo} 库存数量为0`};
 
+        const oldLoc = rec.location;
         const dst = this.stockList.find(s =>
             s.id !== rec.id &&
             String(s.drawNo||"").trim() === String(rec.drawNo||"").trim() &&
@@ -1382,19 +1449,13 @@ methods:{
         }else{
             rec.location = targetLoc;
         }
-        return {success:true, error:null, rec, qty};
+        return {success:true, error:null, rec, qty, oldLoc};
     },
     async batchMoveSelected(){
         const targetLoc = this.batchMoveTargetLoc;
-        if(!targetLoc){
-            await this.showInfo("请先选择目标库位");
-            return;
-        }
+        if(!targetLoc){ await this.showInfo("请先选择目标库位"); return; }
         const selected = this.batchSearchResults.filter(r => r.matched && r.checked);
-        if(selected.length === 0){
-            await this.showInfo("没有选中任何匹配项");
-            return;
-        }
+        if(selected.length === 0){ await this.showInfo("没有选中任何匹配项"); return; }
         if(!await this.showConfirm(`确定将选中的 ${selected.length} 个条目全部移库到【${targetLoc}】？`)) return;
 
         this.pushHistory();
@@ -1414,29 +1475,21 @@ methods:{
                     const idx = this.batchSearchResults.indexOf(item);
                     if(idx > -1) this.batchSearchResults.splice(idx, 1);
                 }
-                this.addLogOnly("批量移库", `图号:${item.drawNo}，型号:${item.model}，名称:${item.name}，材质:${item.material}，原库位:${item.location}→目标库位:${targetLoc}，数量:${res.qty}`);
+                this.addLogOnly("批量移库", `图号:${item.drawNo}，型号:${item.model}，名称:${item.name}，材质:${item.material}，原库位:${res.oldLoc}→目标库位:${targetLoc}，数量:${res.qty}`);
             }else{
                 errorMsgs.push(res.error);
             }
         }
         await this.saveLocal();
         let msg = `批量移库完成：成功 ${successCount} 条`;
-        if(errorMsgs.length > 0){
-            msg += `，失败 ${errorMsgs.length} 条（${errorMsgs.join("；")}）`;
-        }
+        if(errorMsgs.length > 0){ msg += `，失败 ${errorMsgs.length} 条（${errorMsgs.join("；")}）`; }
         await this.showInfo(msg);
     },
     async batchMoveAll(){
         const targetLoc = this.batchMoveTargetLoc;
-        if(!targetLoc){
-            await this.showInfo("请先选择目标库位");
-            return;
-        }
+        if(!targetLoc){ await this.showInfo("请先选择目标库位"); return; }
         const matched = this.batchSearchResults.filter(r => r.matched);
-        if(matched.length === 0){
-            await this.showInfo("没有匹配的库存项");
-            return;
-        }
+        if(matched.length === 0){ await this.showInfo("没有匹配的库存项"); return; }
         if(!await this.showConfirm(`确定将全部 ${matched.length} 个匹配项移库到【${targetLoc}】？`)) return;
 
         this.pushHistory();
@@ -1456,19 +1509,16 @@ methods:{
                     const idx = this.batchSearchResults.indexOf(item);
                     if(idx > -1) this.batchSearchResults.splice(idx, 1);
                 }
-                this.addLogOnly("批量移库", `图号:${item.drawNo}，型号:${item.model}，名称:${item.name}，材质:${item.material}，原库位:${item.location}→目标库位:${targetLoc}，数量:${res.qty}`);
+                this.addLogOnly("批量移库", `图号:${item.drawNo}，型号:${item.model}，名称:${item.name}，材质:${item.material}，原库位:${res.oldLoc}→目标库位:${targetLoc}，数量:${res.qty}`);
             }else{
                 errorMsgs.push(res.error);
             }
         }
         await this.saveLocal();
         let msg = `一键移库完成：成功 ${successCount} 条`;
-        if(errorMsgs.length > 0){
-            msg += `，失败 ${errorMsgs.length} 条（${errorMsgs.join("；")}）`;
-        }
+        if(errorMsgs.length > 0){ msg += `，失败 ${errorMsgs.length} 条（${errorMsgs.join("；")}）`; }
         await this.showInfo(msg);
     },
-    // ================== 库位管理 ==================
     async addLoc(){
         let v=this.newLoc.trim();
         if(!v){await this.showInfo("库位不能为空");return;}
@@ -1504,7 +1554,6 @@ methods:{
         this.addLogOnly("库位", `调整库位顺序：${arr[idx+1]} 下移`);
         await this.saveLocal();
     },
-    // ================== 入库 ==================
     clearInForm(){
         this.inForm={name:"",model:"",drawNo:"",material:"",qty:null,location:"临时待分配"};
     },
@@ -1513,18 +1562,24 @@ methods:{
         let drawStr = f.drawNo.trim();
         if(!drawStr||!f.qty||Number(f.qty)<=0){await this.showInfo("图号、入库数量为必填且大于0");return;}
         let item={
-            id:Date.now(),
-            name:f.name?.trim()||"",
-            model:f.model?.trim()||"",
+            id:Date.now()+Math.random(),
+            name:(f.name||"").trim(),
+            model:(f.model||"").trim(),
             drawNo:drawStr,
-            material:f.material?.trim()||"",
+            material:(f.material||"").trim(),
             qty:Number(f.qty),
             location:f.location
         };
         this.pushHistory();
-        let exist=this.stockList.find(x=>x.drawNo===item.drawNo && x.location===item.location);
+        let exist=this.stockList.find(x=>
+            String(x.drawNo||"").trim()===item.drawNo &&
+            String(x.location||"").trim()===item.location &&
+            String(x.name||"").trim()===item.name &&
+            String(x.model||"").trim()===item.model &&
+            String(x.material||"").trim()===item.material
+        );
         if(exist){
-            exist.qty+=item.qty;
+            exist.qty = Number(exist.qty) + item.qty;
         }else{
             this.stockList.push(item);
         }
@@ -1534,7 +1589,6 @@ methods:{
         await this.showInfo("入库完成");
         this.clearInForm();
     },
-    // ================== 库存表格编辑 ==================
     startEdit(row){
         this.editId = row.id;
         this.editForm = {
@@ -1555,21 +1609,48 @@ methods:{
             await this.showInfo("图号不能为空");
             return;
         }
-        let oldModel = row.model;
-        let oldDrawNo = row.drawNo;
-        let oldName = row.name;
-        let oldMaterial = row.material;
-        let oldLocation = row.location;
-        let oldQty = row.qty;
+        let oldModel = row.model, oldDrawNo = row.drawNo, oldName = row.name;
+        let oldMaterial = row.material, oldLocation = row.location, oldQty = row.qty;
+
+        const newName = (this.editForm.name||"").trim();
+        const newModel = (this.editForm.model||"").trim();
+        const newDrawNo = this.editForm.drawNo.trim();
+        const newMaterial = (this.editForm.material||"").trim();
+        const newLocation = this.editForm.location;
+        const newQty = Math.max(0, Number(this.editForm.qty)||0);
+
+        const dup = this.stockList.find(s =>
+            s.id !== row.id &&
+            String(s.drawNo||"").trim()===newDrawNo &&
+            String(s.location||"").trim()===newLocation &&
+            String(s.name||"").trim()===newName &&
+            String(s.model||"").trim()===newModel &&
+            String(s.material||"").trim()===newMaterial
+        );
+        if(dup){
+            const ok = await this.showConfirm(
+                `编辑后与另一条记录完全重复（图号:${newDrawNo}，库位:${newLocation}）。\n` +
+                `是否合并为一条（数量相加：${Number(dup.qty)} + ${newQty} = ${Number(dup.qty)+newQty}）？`
+            );
+            if(!ok) return;
+            this.pushHistory();
+            dup.qty = Number(dup.qty) + newQty;
+            this.stockList = this.stockList.filter(s => s.id !== row.id);
+            this.rebuildLocListFromStock();
+            this.addLogOnly("编辑合并",`原ID:${row.id}【图号:${oldDrawNo}，库位:${oldLocation}，数量:${oldQty}】合并到ID:${dup.id}，新数量:${dup.qty}`);
+            this.editId=null; this.editForm={};
+            await this.saveLocal();
+            await this.showInfo("已合并为一条记录");
+            return;
+        }
 
         this.pushHistory();
-
-        row.name=(this.editForm.name||"").trim();
-        row.model=(this.editForm.model||"").trim();
-        row.drawNo=this.editForm.drawNo.trim();
-        row.material=(this.editForm.material||"").trim();
-        row.location=this.editForm.location;
-        row.qty=Number(this.editForm.qty)||0;
+        row.name = newName;
+        row.model = newModel;
+        row.drawNo = newDrawNo;
+        row.material = newMaterial;
+        row.location = newLocation;
+        row.qty = newQty;
 
         this.rebuildLocListFromStock();
         this.addLogOnly("编辑",`ID:${row.id}，修改前【产品型号:${oldModel}，图号:${oldDrawNo}，名称:${oldName}，材质:${oldMaterial}，库位:${oldLocation}，数量:${oldQty}】；修改后【产品型号:${row.model}，图号:${row.drawNo}，名称:${row.name}，材质:${row.material}，库位:${row.location}，数量:${row.qty}】`);
@@ -1585,23 +1666,16 @@ methods:{
         this.addLogOnly("删除",`产品型号:${row.model}，图号:${row.drawNo}，名称:${row.name}，材质:${row.material}，库位:${row.location}，数量:${row.qty}`);
         await this.saveLocal();
     },
-    // ================== 导入导出（库存） ==================
     async triggerImportReplace(){
-        if(!await this.showConfirm("⚠️警告：此操作会清空当前全部库存数据，用Excel文件内容完全覆盖！确定继续吗？")){
-            return;
-        }
+        if(!await this.showConfirm("⚠️警告：此操作会清空当前全部库存数据，用Excel文件内容完全覆盖！确定继续吗？")) return;
         this.$refs.fileReplace.click();
     },
     async triggerImportAppend(){
-        if(!await this.showConfirm("⚠️提示：即将追加导入Excel文件，信息全部相同的条目会累加数量，不同则新增。确定继续吗？")){
-            return;
-        }
+        if(!await this.showConfirm("⚠️提示：即将追加导入Excel文件，信息全部相同的条目会累加数量，不同则新增。确定继续吗？")) return;
         this.$refs.fileAppend.click();
     },
     async triggerRestoreHtml(){
-        if(!await this.showConfirm("⚠️警告：此操作会清空当前全部库存数据（含库位信息），用HTML备份文件内容完全覆盖！确定继续吗？")){
-            return;
-        }
+        if(!await this.showConfirm("⚠️警告：此操作会清空当前全部库存数据（含库位信息），用HTML备份文件内容完全覆盖！确定继续吗？")) return;
         this.$refs.fileRestore.click();
     },
     importReplace(e){
@@ -1614,7 +1688,7 @@ methods:{
                 const sheet=wb.Sheets[wb.SheetNames[0]];
                 const json=XLSX.utils.sheet_to_json(sheet);
                 let newList = json.map((row,idx)=>({
-                    id:Date.now()+idx,
+                    id:Date.now()+idx+Math.random(),
                     name:String(row["工件名称"]||"").trim(),
                     model:String(row["产品型号"]||"").trim(),
                     drawNo:String(row["图号"]||"").trim(),
@@ -1682,12 +1756,8 @@ methods:{
                     }else{
                         this.stockList.push({
                             id:Date.now()+Math.random(),
-                            name:nm,
-                            model:md,
-                            drawNo:d,
-                            material:mt,
-                            location:loc,
-                            qty:q
+                            name:nm, model:md, drawNo:d,
+                            material:mt, location:loc, qty:q
                         })
                     }
                 });
@@ -1709,21 +1779,14 @@ methods:{
     },
     async exportExcel(){
         let data=this.stockList.map(r=>({
-            "产品型号":r.model,
-            "图号":r.drawNo,
-            "工件名称":r.name,
-            "材质":r.material,
-            "库位":r.location,
-            "库存数量":r.qty
+            "产品型号":r.model, "图号":r.drawNo, "工件名称":r.name,
+            "材质":r.material, "库位":r.location, "库存数量":r.qty
         }));
-
         const ws=XLSX.utils.json_to_sheet(data);
         const wb=XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb,ws,"库存");
         const out=XLSX.write(wb,{bookType:"xlsx",type:"array"});
-
         const fileName = "焊接车间库存_" + this.buildTimeStamp() + ".xlsx";
-
         if(window.__TAURI__ && window.__TAURI__.dialog && window.__TAURI__.fs){
             try{
                 const path=await window.__TAURI__.dialog.save({
@@ -1748,15 +1811,12 @@ methods:{
         }
         await this.addLog("导出","导出Excel库存文件："+fileName);
     },
-    // ================== HTML 备份导出（编码版，含库位顺序） ==================
     async exportHtml(){
         this.rebuildLocListFromStock();
         const locEncoded = encodeURIComponent(JSON.stringify(this.locList));
         const stockEncoded = encodeURIComponent(JSON.stringify(this.stockList));
         let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>库存备份数据</title></head><body><pre>locData=${locEncoded}\nstockData=${stockEncoded}</pre></body></html>`;
-
         const fileName = "库存备份_" + this.buildTimeStamp() + ".html";
-
         if(window.__TAURI__ && window.__TAURI__.dialog && window.__TAURI__.fs){
             try{
                 const path=await window.__TAURI__.dialog.save({
@@ -1779,7 +1839,6 @@ methods:{
         }
         await this.addLog("备份","导出HTML备份文件："+fileName);
     },
-    // ================== HTML 备份导入（兼容新旧格式） ==================
     restoreHtml(e){
         let f=e.target.files[0];
         if(!f) return;
@@ -1795,13 +1854,8 @@ methods:{
                 }
                 const decodeData = (str) => {
                     let s = str.trim();
-                    try{
-                        const decoded = decodeURIComponent(s);
-                        JSON.parse(decoded);
-                        return JSON.parse(decoded);
-                    }catch(_){
-                        return JSON.parse(s);
-                    }
+                    try{ return JSON.parse(s); }catch(_){}
+                    return JSON.parse(decodeURIComponent(s));
                 };
                 const newLoc = decodeData(matchLoc[1]);
                 const newStock = decodeData(matchStock[1]);
@@ -1809,9 +1863,7 @@ methods:{
                     await this.showInfo("HTML备份文件内容格式不正确");
                     return;
                 }
-                if(!await this.showConfirm("⚠️警告：即将用该备份文件完全覆盖当前全部库位与库存数据！确定继续吗？")){
-                    return;
-                }
+                if(!await this.showConfirm("⚠️警告：即将用该备份文件完全覆盖当前全部库位与库存数据！确定继续吗？")) return;
                 this.pushHistory();
                 this.locList = newLoc;
                 this.stockList = newStock;

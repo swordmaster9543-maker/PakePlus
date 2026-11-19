@@ -188,6 +188,73 @@ table tbody tr:hover td{ background:#e8f0fe; }
     line-height: 1;
     vertical-align: middle;
 }
+
+/* ===== 顶部指标条 ===== */
+#app{}
+.sub-line{font-size:12px;color:#7a8798;margin:-6px 0 12px;}
+.metric-bar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:12px;max-width:1400px;}
+.metric{background:#f6f9fe;border:1px solid #dbe6f7;border-left:3px solid #2b78e4;border-radius:2px;padding:10px 14px;}
+.metric .m-val{font-size:26px;font-weight:bold;color:#1a4c8f;line-height:1.15;font-variant-numeric:tabular-nums;}
+.metric .m-lab{font-size:12px;color:#607089;margin-top:2px;}
+.metric.warn{border-left-color:#FF5722;}
+.metric.warn .m-val{color:#d84315;}
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;}
+.toolbar .tips-btn{margin-left:auto;}
+.history-hint{font-size:12px;color:#1e7e34;}
+
+/* ===== 分区标题 ===== */
+.sec-title{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:bold;margin:0 0 12px;flex-wrap:wrap;}
+.sec-title .no{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:2px;background:#2b78e4;color:#fff;font-size:13px;font-weight:bold;flex:0 0 auto;}
+
+/* ===== 入库 / 出库 并排（左①入库 右②出库移库） ===== */
+.work-grid{display:grid;grid-template-columns:380px minmax(0,1fr);gap:14px;align-items:start;margin-bottom:14px;}
+.work-grid > .section{margin-bottom:0;}
+.in-section{grid-column:1;grid-row:1;}
+.out-section{grid-column:2;grid-row:1;}
+.in-section .row{margin:8px 0;}
+.in-section .row label{width:72px;}
+.in-section input,.in-section select{flex:1 1 auto;min-width:0;}
+.in-section button{flex:0 0 auto;}
+.in-section .in-actions{display:flex;gap:8px;margin:2px 0 8px;}
+.in-section .in-actions .btn-blue{flex:1 1 auto;}
+.in-section .in-actions .btn-red{flex:0 0 auto;}
+.out-section textarea{flex:1 1 auto;min-width:0;}
+@media (max-width:1250px){
+    .work-grid{grid-template-columns:1fr;}
+    .in-section{grid-column:1;grid-row:1;}
+    .out-section{grid-column:1;grid-row:2;}
+}
+
+/* ===== 批量结果台账化 + 右栏限宽 ===== */
+#app{max-width:1400px;margin:0 auto;}
+@media (min-width:1251px){
+    .work-grid{grid-template-columns:380px minmax(0,1000px);}
+}
+.batch-result-box{max-height:360px;}
+.batch-head{
+    display:grid;
+    grid-template-columns:34px 100px minmax(0,1fr) minmax(0,1fr) 76px 52px 158px;
+    gap:6px;padding:4px 8px;font-size:12px;color:#607089;
+    border-bottom:1px solid #dcdcdc;background:#f3f4f6;
+}
+.batch-result-item{
+    display:grid;
+    grid-template-columns:34px 100px minmax(0,1fr) minmax(0,1fr) 76px 52px 158px;
+    gap:6px;align-items:center;padding:5px 8px;
+}
+.batch-result-item .c-chk{display:flex;justify-content:center;align-items:center;}
+.batch-result-item .c-draw{font-weight:bold;white-space:nowrap;}
+.batch-result-item .c-txt{font-size:12px;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.batch-result-item .c-num{text-align:center;font-weight:bold;color:#2e7d32;font-size:12px;}
+.batch-result-item .c-act{display:flex;gap:4px;align-items:center;justify-content:flex-end;}
+.batch-result-item .c-act input{width:62px;min-width:0;height:24px;padding:2px 4px;}
+.batch-result-item .c-act button{height:24px;padding:0 8px;font-size:12px;}
+.batch-result-item .c-msg{grid-column:3 / -1;font-size:12px;}
+/* 产品型号 / 图号列表：只允许上下拖动改高度，不能改宽度 */
+.out-section textarea.resizable-both{resize:vertical;max-width:100%;}
+/* 出库卡片底部恢复默认留白 */
+/* ===== 图号列表默认高度：只改下面这一行 height 的数值即可（单位 px） ===== */
+.out-section textarea.draw-list-area{height:171.7px;min-height:60px;max-height:none;}
 </style>
 </head>
 <body>
@@ -205,13 +272,35 @@ table tbody tr:hover td{ background:#e8f0fe; }
         </div>
     </div>
     <h1>焊接车间工件库存管理</h1>
-    <div class="row" style="position:relative;">
+        <div class="metric-bar">
+        <div class="metric">
+            <div class="m-val">{{ locList.length }}</div>
+            <div class="m-lab">已登记库位</div>
+        </div>
+        <div class="metric">
+            <div class="m-val">{{ stockItemCount }}</div>
+            <div class="m-lab">库存记录条目</div>
+        </div>
+        <div class="metric">
+            <div class="m-val">{{ stockTotalQty }}</div>
+            <div class="m-lab">在库工件总数</div>
+        </div>
+        <div class="metric">
+            <div class="m-val">{{ todayInCount }}</div>
+            <div class="m-lab">今日入库笔数</div>
+        </div>
+        <div class="metric warn">
+            <div class="m-val">{{ todayOutCount }}</div>
+            <div class="m-lab">今日出库笔数</div>
+        </div>
+    </div>
+    <div class="row toolbar">
         <button class="btn-blue" @click="showLocModal=true">库位管理</button>
         <button class="btn-blue" @click="showLogModal=true">查看操作日志</button>
         <button class="btn-green" @click="undo" :disabled="undoStack.length===0">撤销</button>
         <button class="btn-green" @click="redo" :disabled="redoStack.length===0">恢复</button>
-        <span style="color:#666;font-size:12px;">（可撤销步数：{{undoStack.length}}　可恢复步数：{{redoStack.length}}）</span>
-        <button :class="showTips ? 'btn-green' : 'btn-gray'" style="position:absolute;right:0;top:0;" @click="showTips = !showTips">
+        <span class="history-hint" v-if="undoStack.length>0 || redoStack.length>0">（可撤销步数：{{ undoStack.length }}　可恢复步数：{{ redoStack.length }}）</span>
+        <button :class="showTips ? 'btn-green' : 'btn-gray'" class="tips-btn" @click="showTips = !showTips">
             {{ showTips ? '隐藏提示' : '显示提示' }}
         </button>
     </div>
@@ -271,9 +360,11 @@ table tbody tr:hover td{ background:#e8f0fe; }
         </div>
     </div>
 
+    <!-- 入库 / 出库 并排 -->
+    <div class="work-grid">
     <!-- 工件入库 -->
     <div class="section in-section">
-        <h2>工件入库 <span class="required">（*为必填）</span></h2>
+        <div class="sec-title"><span class="no">①</span>工件入库 <span class="required" style="font-size:12px;font-weight:normal;">（*为必填）</span></div>
         <div class="row">
             <label>产品型号:</label>
             <input v-model="inForm.model" :placeholder="showTips ? '手动输入产品型号' : ''">
@@ -300,22 +391,25 @@ table tbody tr:hover td{ background:#e8f0fe; }
         <div class="row">
             <label><span class="required">*</span>入库数量:</label>
             <input v-model.number="inForm.qty" type="number" :placeholder="showTips ? '请输入数量' : ''">
+        </div>
+        <div class="row in-actions">
             <button class="btn-blue" @click="doIn">提交入库</button>
             <button class="btn-red" @click="clearInForm">清空</button>
         </div>
     </div>
 
     <!-- 出库 / 移库操作 -->
-    <div class="section">
-        <h2 style="color:#000;">出库 / 移库操作</h2>
+    <div class="section out-section">
+        <div class="sec-title"><span class="no">②</span>查料与出库 / 移库</div>
 
         <div class="row">
             <label>产品型号：</label>
             <textarea
                 v-model="batchModelFilter"
                 rows="1"
+                ref="taModelFilter"
                 class="resizable-both model-filter"
-                :placeholder="showTips ? '可选，多个型号用逗号/空格分隔，留空表示不限制' : ''"
+                :placeholder="showTips ? '可选：多个型号用逗号/空格分隔' : ''"
                 @keydown.enter.prevent
             ></textarea>
             <button
@@ -329,8 +423,8 @@ table tbody tr:hover td{ background:#e8f0fe; }
 
         <div class="row">
             <label>图号列表：</label>
-            <textarea v-model="batchSearchInput" rows="4" cols="60" class="resizable-both"
-                :placeholder="showTips ? '每行一个图号，或用逗号/空格分隔。留空表示不限制图号（仅按型号检索时可不填）。例如：\nT1234\nT5678\n或 T1234, T5678 T9012' : ''"></textarea>
+            <textarea v-model="batchSearchInput" rows="4" cols="60" ref="taDrawList" class="resizable-both draw-list-area"
+                :placeholder="showTips ? '每行一个图号，逗号/空格分隔也可。例如：T1234, T5678' : ''"></textarea>
         </div>
 
         <div class="row">
@@ -367,7 +461,7 @@ table tbody tr:hover td{ background:#e8f0fe; }
         <div v-if="batchSearchResults.length>0" style="margin-top:10px;">
             <div class="batch-action-bar">
                 <span class="bar-label">批量操作：</span>
-                <button class="btn-orange" @click="batchOutAll" :disabled="batchMatchedCount===0">一键出库全部匹配项</button>
+                <button class="btn-orange" @click="batchOutAll" :disabled="batchMatchedCount===0">出库全部匹配项</button>
                 <button class="btn-orange" @click="batchOutSelected" :disabled="batchSelectedCount===0">出库选中项 ({{batchSelectedCount}})</button>
                 <span style="width:1px;height:20px;background:#bbb;margin:0 4px;"></span>
                 <label style="width:auto;font-weight:bold;color:#00897b;">目标库位：</label>
@@ -376,41 +470,46 @@ table tbody tr:hover td{ background:#e8f0fe; }
                     <option value="临时待分配">临时待分配</option>
                     <option v-for="l in locList" :key="l" :value="l">{{l}}</option>
                 </select>
+                <button class="btn-teal" @click="batchMoveAll" :disabled="batchMatchedCount===0 || !batchMoveTargetLoc">移库全部匹配项</button>
                 <button class="btn-teal" @click="batchMoveSelected" :disabled="batchSelectedCount===0 || !batchMoveTargetLoc">移库选中项 ({{batchSelectedCount}})</button>
-                <button class="btn-teal" @click="batchMoveAll" :disabled="batchMatchedCount===0 || !batchMoveTargetLoc">一键移库全部匹配项</button>
                 <span style="width:1px;height:20px;background:#bbb;margin:0 4px;"></span>
                 <button class="btn-blue" @click="exportBatchResult">导出检索结果Excel</button>
             </div>
 
             <div class="batch-result-box">
-                <div v-for="(item, idx) in batchSearchResults" :key="idx" 
-                     class="batch-result-item" 
+                <div class="batch-head">
+                    <div></div><div>图号</div><div>产品型号</div><div>工件名称</div><div>库位</div><div>库存</div><div style="text-align:right;">操作</div>
+                </div>
+                <div v-for="(item, idx) in batchSearchResults" :key="idx"
+                     class="batch-result-item"
                      :class="item.matched ? 'matched' : (item.filtered ? 'filtered' : 'unmatched')">
-                    <div style="display:flex;align-items:center;gap:10px;flex:1;">
-                        <input type="checkbox" v-model="item.checked" v-if="item.matched" style="width:auto;">
-                        <span style="font-weight:bold;min-width:120px;">{{ item.drawNo }}</span>
-                        <span v-if="item.matched" style="color:#2e7d32;">
-                            型号:{{ item.model || "（空）" }}｜名称:{{ item.name }}｜库位:{{ item.location }}｜库存:{{ item.qty }}
-                        </span>
-                        <span v-else-if="item.filtered" style="color:#8d6e63;">
-                            ⚠️ 因产品型号不符合筛选条件被过滤
-                        </span>
-                        <span v-else style="color:#b71c1c;">❌ 未找到库存</span>
-                    </div>
-                    <div v-if="item.matched" style="display:flex;gap:4px;align-items:center;">
-                        <input v-model.number="item.outQty" type="number" min="0" :max="item.qty" style="width:70px;padding:2px 4px;" placeholder="出库量">
-                        <button class="btn-blue" style="padding:2px 8px;font-size:12px;" @click="singleOutFromBatch(item)">出库</button>
-                        <button class="btn-teal" style="padding:2px 8px;font-size:12px;" @click="startMoveFromBatch(item)">移库</button>
-                    </div>
+                    <div class="c-chk"><input type="checkbox" v-model="item.checked" v-if="item.matched" style="width:auto;"></div>
+                    <div class="c-draw">{{ item.drawNo }}</div>
+                    <template v-if="item.matched">
+                        <div class="c-txt">{{ item.model || "（空）" }}</div>
+                        <div class="c-txt">{{ item.name }}</div>
+                        <div class="c-txt">{{ item.location }}</div>
+                        <div class="c-num">{{ item.qty }}</div>
+                        <div class="c-act">
+                            <input v-model.number="item.outQty" type="number" min="0" :max="item.qty" placeholder="出库量">
+                            <button class="btn-blue" @click="singleOutFromBatch(item)">出库</button>
+                            <button class="btn-teal" @click="startMoveFromBatch(item)">移库</button>
+                        </div>
+                    </template>
+                    <template v-else>
+                        <div class="c-msg" v-if="item.filtered">⚠️ 因产品型号不符合筛选条件被过滤</div>
+                        <div class="c-msg" v-else>❌ 未找到库存</div>
+                    </template>
                 </div>
             </div>
         </div>
         <div v-else-if="batchSearched" style="color:#888;margin-top:8px;">未检索到任何匹配的库存，请检查输入。</div>
     </div>
+    </div><!-- /work-grid -->
 
     <!-- 数据导入导出 -->
     <div class="section">
-        <h2>数据导入导出</h2>
+        <div class="sec-title"><span class="no">③</span>导入 / 导出 / 备份</div>
         <div class="row">
             <button class="btn-blue" @click="triggerImportReplace">导入Excel(覆盖全部)</button>
             <button class="btn-blue" @click="triggerImportAppend">导入Excel(追加不覆盖)</button>
@@ -426,15 +525,16 @@ table tbody tr:hover td{ background:#e8f0fe; }
             📌Excel模板字段: 产品型号,图号,工件名称,材质,库位,库存数量<br>
             📌追加导入：产品型号+图号+工件名称+材质+库位全部相同才累加数量，否则新增一条。<br>
             📌HTML备份：完整保存库位与全部库存数据（含库位顺序），导出的数据经过编码，可稳定导入。<br>
-            📌存储：使用 IndexedDB，可稳定存储数万条库存记录。
+            📌存储：数据保存在本机，关闭页面不会丢失；换电脑或重装系统前，用“导出备份”带走即可。
         </div>
     </div>
 
     <!-- 库存查询 -->
     <div class="section query-section">
-        <h2>库存查询
-            <span style="font-weight:normal;font-size:12px;">｜合计库存条目：{{tableData.length}} 总数量：{{totalStockQty}}</span>
-        </h2>
+        <div class="sec-title"><span class="no">④</span>库存明细
+            <span style="font-weight:normal;font-size:12px;color:#666;">｜当前显示 {{tableData.length}} 条，合计数量 {{totalStockQty}}</span>
+            <button class="btn-blue" style="margin-left:auto;" @click="showStockTable = !showStockTable">{{ showStockTable ? '收起明细' : '展开明细' }}</button>
+        </div>
         <div class="row">
             <label style="width:auto;min-width:90px;">搜索产品型号:</label>
             <input v-model="queryModel" :placeholder="showTips ? '输入产品型号搜索' : ''" @input="refreshTable">
@@ -449,7 +549,7 @@ table tbody tr:hover td{ background:#e8f0fe; }
             <button class="btn-blue" @click="refreshTable">刷新库存表格</button>
             <button class="btn-red" @click="clearQuery">清空查询</button>
         </div>
-        <table>
+        <table v-show="showStockTable">
             <thead>
                 <tr>
                     <th style="width:50px;">序号</th>
@@ -631,6 +731,7 @@ data(){
         _infoSkipped:false,
         _infoTimer:null,
         showTips: false,
+        showStockTable: true,
         inForm:{name:"",model:"",drawNo:"",material:"",qty:null,location:"临时待分配"},
         queryModel:"",
         queryDraw:"",
@@ -650,6 +751,23 @@ data(){
     }
 },
 computed:{
+    stockItemCount(){
+        return this.stockList.length;
+    },
+    stockTotalQty(){
+        return this.stockList.reduce((sum,item)=>sum + Number(item.qty || 0), 0);
+    },
+    todayInCount(){
+        const d = new Date().toLocaleDateString();
+        return this.opLog.filter(l => String(l.time || "").startsWith(d) && l.type === '入库').length;
+    },
+    todayOutCount(){
+        const d = new Date().toLocaleDateString();
+        return this.opLog.filter(l => String(l.time || "").startsWith(d) && String(l.type || "").includes('出库')).length;
+    },
+    storageModeText(){
+        return this.storageMode;
+    },
     batchMatchedCount(){
         return this.batchSearchResults.filter(r=>r.matched).length;
     },
@@ -1133,6 +1251,12 @@ methods:{
         this.batchSearchResults = [];
         this.batchSearched = false;
         this.batchMoveTargetLoc = "";
+        this.$nextTick(() => {
+            ['taModelFilter', 'taDrawList'].forEach(k => {
+                const el = this.$refs[k];
+                if(el && el.style){ el.style.width = ''; el.style.height = ''; }
+            });
+        });
     },
     triggerImportSearchExcel(){
         const draw = this.importDrawChecked;
